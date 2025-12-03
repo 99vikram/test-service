@@ -107,9 +107,7 @@ provider "kubernetes" {
 }
 
 provider "helm" {
-  kubernetes {
-    config_path = data.external.kubeconfig.result.kubeconfig
-  }
+  # Helm provider v2 automatically uses the kubernetes provider configuration
 }
 
 # Create namespace if needed
