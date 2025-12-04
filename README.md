@@ -45,6 +45,7 @@ Before you begin, ensure you have the following installed:
    
    # Verify
    kind version
+   #kind create cluster --name dev-cluster --config kind-config.yaml
    ```
 
 3. **kubectl** (Kubernetes CLI)
