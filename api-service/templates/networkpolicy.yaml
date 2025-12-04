@@ -1,0 +1,197 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- range $serviceName, $service := .Values.services }}
+{{- if $service.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $serviceName }}-netpol
+  labels:
+    app: {{ $serviceName }}
+    {{- include "api-service.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $serviceName }}
+  policyTypes:
+    {{- if $.Values.networkPolicy.policyTypes }}
+    {{- toYaml $.Values.networkPolicy.policyTypes | nindent 4 }}
+    {{- else }}
+    - Ingress
+    - Egress
+    {{- end }}
+  {{- if $.Values.networkPolicy.ingress }}
+  ingress:
+    {{- range $.Values.networkPolicy.ingress }}
+    - {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- else }}
+  ingress:
+    # Allow ingress from frontend service
+    {{- if eq $serviceName "frontend" }}
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+    {{- else }}
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - protocol: TCP
+          port: {{ $service.containerPort }}
+    {{- end }}
+    # Allow ingress from checkout service for dependent services
+    {{- if or (eq $serviceName "currencyservice") (eq $serviceName "productcatalogservice") (eq $serviceName "shippingservice") (eq $serviceName "paymentservice") (eq $serviceName "emailservice") (eq $serviceName "cartservice") (eq $serviceName "recommendationservice") (eq $serviceName "adservice") }}
+    - from:
+        - podSelector:
+            matchLabels:
+              app: checkoutservice
+      ports:
+        - protocol: TCP
+          port: {{ $service.containerPort }}
+    {{- end }}
+    # Allow ingress from frontend for all backend services
+    {{- if and (ne $serviceName "frontend") (ne $serviceName "loadgenerator") }}
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - protocol: TCP
+          port: {{ $service.containerPort }}
+    {{- end }}
+  {{- end }}
+  {{- if $.Values.networkPolicy.egress }}
+  egress:
+    {{- range $.Values.networkPolicy.egress }}
+    - {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- else }}
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow egress to dependent services
+    {{- if eq $serviceName "frontend" }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: currencyservice
+      ports:
+        - protocol: TCP
+          port: 7000
+    - to:
+        - podSelector:
+            matchLabels:
+              app: productcatalogservice
+      ports:
+        - protocol: TCP
+          port: 3550
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cartservice
+      ports:
+        - protocol: TCP
+          port: 7070
+    - to:
+        - podSelector:
+            matchLabels:
+              app: recommendationservice
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              app: shippingservice
+      ports:
+        - protocol: TCP
+          port: 50051
+    - to:
+        - podSelector:
+            matchLabels:
+              app: checkoutservice
+      ports:
+        - protocol: TCP
+          port: 5050
+    - to:
+        - podSelector:
+            matchLabels:
+              app: adservice
+      ports:
+        - protocol: TCP
+          port: 9555
+    {{- else if eq $serviceName "checkoutservice" }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: productcatalogservice
+      ports:
+        - protocol: TCP
+          port: 3550
+    - to:
+        - podSelector:
+            matchLabels:
+              app: shippingservice
+      ports:
+        - protocol: TCP
+          port: 50051
+    - to:
+        - podSelector:
+            matchLabels:
+              app: paymentservice
+      ports:
+        - protocol: TCP
+          port: 50051
+    - to:
+        - podSelector:
+            matchLabels:
+              app: emailservice
+      ports:
+        - protocol: TCP
+          port: 5000
+    - to:
+        - podSelector:
+            matchLabels:
+              app: currencyservice
+      ports:
+        - protocol: TCP
+          port: 7000
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cartservice
+      ports:
+        - protocol: TCP
+          port: 7070
+    {{- else if eq $serviceName "cartservice" }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis-cart
+      ports:
+        - protocol: TCP
+          port: 6379
+    {{- else if eq $serviceName "recommendationservice" }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: productcatalogservice
+      ports:
+        - protocol: TCP
+          port: 3550
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+

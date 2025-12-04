@@ -1,0 +1,45 @@
+{{- range $serviceName, $service := .Values.services }}
+{{- if and $service.enabled (or (not (hasKey $service.service "enabled")) $service.service.enabled) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $serviceName }}
+  labels:
+    app: {{ $serviceName }}
+    {{- include "api-service.labels" $ | nindent 4 }}
+spec:
+  type: {{ $service.service.type | default "ClusterIP" }}
+  selector:
+    app: {{ $serviceName }}
+  ports:
+  - name: {{ $service.portName | default "http" }}
+    port: {{ $service.service.port }}
+    targetPort: {{ $service.service.targetPort | default $service.containerPort }}
+    protocol: TCP
+{{- end }}
+{{- end }}
+
+{{- if and .Values.services.frontend .Values.services.frontend.enabled .Values.services.frontend.serviceExternal.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-external
+  labels:
+    app: frontend
+    {{- include "api-service.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.services.frontend.serviceExternal.type | default "NodePort" }}
+  selector:
+    app: frontend
+  ports:
+  - name: http
+    port: {{ .Values.services.frontend.serviceExternal.port | default 80 }}
+    targetPort: {{ .Values.services.frontend.serviceExternal.targetPort | default 8080 }}
+    {{- if and (eq (.Values.services.frontend.serviceExternal.type | default "NodePort") "NodePort") (hasKey .Values.services.frontend.serviceExternal "nodePort") (ne (.Values.services.frontend.serviceExternal.nodePort) nil) }}
+    nodePort: {{ .Values.services.frontend.serviceExternal.nodePort }}
+    {{- end }}
+    protocol: TCP
+{{- end }}
+

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: api-service
+description: A Helm chart for microservices demo application
+type: application
+version: 0.1.0
+appVersion: "0.10.4"
+keywords:
+  - microservices
+  - demo
+maintainers:
+  - name: DevOps Team
+dependencies: []
+

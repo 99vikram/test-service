@@ -1,0 +1,114 @@
+{{- range $serviceName, $service := .Values.services }}
+{{- if $service.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $serviceName }}
+  labels:
+    app: {{ $serviceName }}
+    {{- include "api-service.labels" $ | nindent 4 }}
+spec:
+  {{- if $service.replicas }}
+  replicas: {{ $service.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ $serviceName }}
+  template:
+    metadata:
+      labels:
+        app: {{ $serviceName }}
+        {{- include "api-service.labels" $ | nindent 8 }}
+      {{- if $service.annotations }}
+      annotations:
+        {{- toYaml $service.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if $service.serviceAccount.create }}
+      serviceAccountName: {{ include "api-service.serviceAccountName" (dict "root" $ "serviceName" $serviceName "serviceAccount" $service.serviceAccount) }}
+      {{- end }}
+      {{- if $service.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ $service.terminationGracePeriodSeconds }}
+      {{- end }}
+      {{- if $service.restartPolicy }}
+      restartPolicy: {{ $service.restartPolicy }}
+      {{- end }}
+      {{- if or $.Values.global.securityContext $service.securityContext }}
+      securityContext:
+        {{- if $service.securityContext }}
+        {{- toYaml $service.securityContext | nindent 8 }}
+        {{- else }}
+        {{- include "api-service.podSecurityContext" (dict "root" $) | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- if $service.initContainers }}
+      initContainers:
+        {{- range $service.initContainers }}
+        - name: {{ .name }}
+          {{- if .image }}
+          image: {{ .image }}
+          {{- end }}
+          {{- if .command }}
+          command:
+            {{- toYaml .command | nindent 12 }}
+          {{- end }}
+          {{- if or $.Values.global.containerSecurityContext .securityContext }}
+          securityContext:
+            {{- if .securityContext }}
+            {{- toYaml .securityContext | nindent 12 }}
+            {{- else }}
+            {{- include "api-service.containerSecurityContext" (dict "root" $) | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- if .env }}
+          env:
+            {{- range $key, $value := .env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      containers:
+      - name: {{ $service.containerName | default "server" }}
+        image: {{ include "api-service.image" (dict "root" $ "serviceName" $serviceName "image" $service.image) }}
+        {{- if or $.Values.global.containerSecurityContext $service.containerSecurityContext }}
+        securityContext:
+          {{- if $service.containerSecurityContext }}
+          {{- toYaml $service.containerSecurityContext | nindent 10 }}
+          {{- else }}
+          {{- include "api-service.containerSecurityContext" (dict "root" $) | nindent 10 }}
+          {{- end }}
+        {{- end }}
+        ports:
+        - name: {{ $service.portName | default "http" }}
+          containerPort: {{ $service.containerPort }}
+          protocol: TCP
+        {{- if $service.env }}
+        env:
+          {{- include "api-service.envVars" (dict "root" $ "serviceName" $serviceName "env" $service.env) | nindent 10 }}
+        {{- end }}
+        {{- if and $service.probes $service.probes.readiness }}
+        readinessProbe:
+          {{- include "api-service.probe" (dict "probe" $service.probes.readiness) | nindent 10 }}
+        {{- end }}
+        {{- if and $service.probes $service.probes.liveness }}
+        livenessProbe:
+          {{- include "api-service.probe" (dict "probe" $service.probes.liveness) | nindent 10 }}
+        {{- end }}
+        {{- if $service.resources }}
+        resources:
+          {{- toYaml $service.resources | nindent 10 }}
+        {{- end }}
+        {{- if $service.volumeMounts }}
+        volumeMounts:
+          {{- toYaml $service.volumeMounts | nindent 10 }}
+        {{- end }}
+      {{- if $service.volumes }}
+      volumes:
+        {{- toYaml $service.volumes | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}
+

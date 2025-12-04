@@ -1,0 +1,97 @@
+# Development environment overrides
+# This file inherits from values.yaml and overrides specific values for dev
+
+# Override global settings for dev
+global:
+  imageTag: "v0.10.4-dev"
+
+# Development-specific service configurations
+services:
+  currencyservice:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    hpa:
+      enabled: false
+
+  productcatalogservice:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+
+  checkoutservice:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+
+  frontend:
+    replicas: 1
+    serviceExternal:
+      enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+
+  recommendationservice:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 110Mi
+      limits:
+        cpu: 100m
+        memory: 225Mi
+
+  adservice:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 90Mi
+      limits:
+        cpu: 150m
+        memory: 150Mi
+
+  loadgenerator:
+    enabled: true
+    env:
+      USERS: "5"
+      RATE: "0.5"
+
+# Network Policy - more permissive in dev
+networkPolicy:
+  enabled: true
+  egress:
+    - {} # Allow all egress in dev
+
+# Ingress for dev
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+  hosts:
+    - host: api-dev.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
